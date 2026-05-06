@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css" type="text/css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <title>registration</title>
+</head>
+<body>
+    <div class="navbar">
+        <span class="navbar-brand mb-0 h1">
+            <a href="index.html" class="btn btn-outline-secondary">back</a>
+        </span>
+    </div>
+    <section class="justify-content-center align-items-center">
+        <div class="text-center my-5">
+            <h1 class="lead display-4">Registration</h1>
+        </div>
+        <div class="container-lg my-5 p-5 bg-light align-items-center" id="registration">
+            <form id="registrationForm">
+                <div class="mb-3">
+                    <label for="registrationEmail" class="form-label">Email address</label>
+                    <input type="email" class="form-control" id="registrationEmail" aria-describedby="emailHelp" required>
+                    <div id="emailHelp" class="form-text">We'll never share your email with anyone else.</div>
+                </div>
+                <div class="mb-3">
+                    <label for="registrationPassword" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="registrationPassword" required>
+                </div>
+                <div class="mb-3">
+                    <label for="registrationConfirmPassword" class="form-label">Confirm Password</label>
+                    <input type="password" class="form-control" id="registrationConfirmPassword" required>
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="registrationCheck" required>
+                    <label class="form-check-label" for="registrationCheck">I agree to the Terms and Conditions</label>
+                </div>
+                <div>
+                    <button type="submit" class="btn btn-primary">Register</button>
+                    <a href="login.html" class="text-decoration-none ms-3">Already have an account?</a>
+                </div>
+                <div id="registrationErrorMessage" class="text-danger mt-3"></div>
+            </form>
+        </div>
+    </section>
+    <script>
+        const registrationForm = document.getElementById('registrationForm');
+        const registrationErrorMessage = document.getElementById('registrationErrorMessage');
+
+        registrationForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('registrationEmail').value;
+            const password = document.getElementById('registrationPassword').value;
+            const confirmPassword = document.getElementById('registrationConfirmPassword').value;
+
+            if (password !== confirmPassword) {
+                registrationErrorMessage.innerText = "Passwords do not match!";
+                return;
+            }
+
+            try {
+                const response = await fetch('http://localhost:5000/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    registrationErrorMessage.innerText = `Registration failed: ${errorData.message}`;
+                    return;
+                }
+                registrationErrorMessage.innerText = "Registration successful! You can now log in.";
+                window.location.href = '/login.html';
+            } catch (error) {
+                console.error("Error during registration:", error);
+                registrationErrorMessage.innerText = "An error occurred during registration. Please try again later.";
+            }
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+</body>
+</html>
