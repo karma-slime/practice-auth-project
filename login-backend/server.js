@@ -32,12 +32,15 @@ const authLimiter = rateLimit({
 app.use('/login', authLimiter);
 app.use('/register', authLimiter);
 
-// db connection details
-const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root', // replace with user name once created
-    password: '', // replace with password once added
-    database: 'user_auth'
+// db connection details / pooling for better performance and handling multiple connections
+const db = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root', // replace with user name once created
+    password: process.env.DB_PASSWORD || '', // replace with password once added
+    database: process.env.DB_NAME || 'user_auth',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
 
 // connection initializer
@@ -48,6 +51,26 @@ db.connect((err) => {
     }
     console.log("Connected to mysql database as id " + db.threadId);
 });
+
+const pool = db.promise();
+
+module.exports = { pool };
+
+// centralized config for environment variables and database connection details
+const config = {
+    env: process.env.NODE_ENV || 'development',
+    port: process.env.PORT || 5000,
+    jwtSecret: process.env.JWT_SECRET,
+    db: {
+        host: process.env.DB_HOST || 'localhost',
+        user: process.env.DB_USER || 'root',
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+        connectionLimit: process.env.NODE_ENV === 'production' ? 50 : 10
+    }
+};
+
+module.exports = config;
 
 // test route to check if server is running
 db.on('error', (err) => {
