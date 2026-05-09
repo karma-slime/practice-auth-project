@@ -88,16 +88,10 @@ app.get('/', (req, res) => {
     res.status(200).send("Backend server is running!");
 });
 
-app.get('/test-db', (req, res) => {
-    db.query('SELECT 1 AS result', (err, results) => {
-        if (err) {
-            console.error("Error querying database: ", err);
-            res.status(500).send("Error querying database");
-            return;
-        }
-        res.status(200).send("Database connection is working!");
-    });
-});
+app.get('/test-db', catchAsync(async (req, res) => {
+    await db.query('SELECT 1 AS result');
+    res.status(200).send("Database connection is working!");
+}));
 
 // Middleware to authenticate JWT token the bouncer
 function authenticateToken(req, res, next) {
@@ -105,12 +99,16 @@ function authenticateToken(req, res, next) {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
-        return res.status(401).json({ message: "Access token required" });
+        const error = new Error("Access token required");
+        error.statusCode = 401;
+        return next(error);
     }
 
     jwt.verify(token, process.env.JWT_SECRET, (err, decodedUser) => {
         if (err) {
-            return res.status(403).json({ message: "Invalid or expired token" });
+            const error = new Error("Invalid or expired token");
+            error.statusCode = 403;
+            return next(error);
         }
         req.user = decodedUser;
         next();
@@ -118,82 +116,63 @@ function authenticateToken(req, res, next) {
 }
 
 // Post registration request handler
-app.post('/register', async (req, res) => {
-    try {
-        const { email, password } = req.body;
+app.post('/register', catchAsync(async (req, res, next) => {
+    const { email, password } = req.body;
 
-        if (!email || !password) {
-            return res.status(400).json({ message: "Email and password are reqired" });
-        }
-
-        if (!email.includes('@')) {
-            return res.status(400).json({ message: "Invalid email format" });
-        }
-
-        if (password.length < 6) {
-            return res.status(400).json({ message: "Password must be at least 6 characters long" });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-        
-        const sql = 'INSERT INTO user (email, password) VALUES (?, ?)';
-        db.query(sql, [email, hashedPassword], (err, results) => {
-            if (err) {
-                if (err.code === 'ER_DUP_ENTRY') {
-                    return res.status(400).json({ message: "Email already exists" });
-                }
-                console.error("Error inserting user: ", err);
-                return res.status(500).json({ message: "Error registering user" });
-            }
-            res.status(201).json({ message: "User registered successfully" });
-        });
-    } catch (error) {
-        console.error("Error in registration: ", error);
-        res.status(500).json({ message: "Internal server error" });
+    if (!email || !password) {
+        const error = new Error("Email and password are required");
+        error.statusCode = 400;
+        return next(error);
     }
-});
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    try{
+        await db.query('INSERT INTO user (email, password) VALUES (?, ?)', [email, hashedPassword]);
+        res.status(201).json({ message: "User registered successfully" });
+    } catch (error) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            const error = new Error("Email already exists");
+            error.statusCode = 400;
+            return next(error);
+        }
+        next(error);
+    }
+}));
 
 // Post login request handler
-app.post('/login', async (req, res) => {
+app.post('/login', catchAsync(async (req, res, next) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
         return res.status(400).json({ message: "Email and password are required" });
     }
 
-    const sql = 'SELECT * FROM user WHERE email = ?';
-    db.query(sql, [email], async (err, results) => {
-        if (err) {
-            console.error("Error querying user: ", err);
-            return res.status(500).json({ message: "Error logging in" });
-        }
+    const [rows] = await db.query('SELECT * FROM user WHERE email = ?', [email]);
+    
+    if (rows.length === 0) {
+        const error = new Error("Invalid email or password");
+        error.statusCode = 401;
+        throw error;
+    }
 
-        if (results.length === 0) {
-            return res.status(401).json({ message: "Invalid email or password" });
-        }
+    const user = rows[0];
+    const isMatch = await bcrypt.compare(password, user.password);
 
-        const user = results[0];
-        const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+        const error = new Error("Invalid email or password");
+        error.statusCode = 401;
+        throw error;
+    }
 
-        if (!isMatch) {
-            return res.status(401).json({ message: "Invalid email or password" });
-        }
-
-        const token = jwt.sign(
-            { id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
+    const token = jwt.sign(
+        { id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
         res.status(200).json({ message: "Login successful", token: token });
-    });
-});
+    }));
 
 // Example of a protected route
 app.get('/test-token', authenticateToken, (req, res) => {
-    try {
-        res.status(200).json({ message: "Token is valid", user: req.user.email });
-    } catch (error) {
-        console.error("Error in dashboard route: ", error);
-        res.status(500).json({ message: "Internal server error" });
-    }
+   res.status(200).json({ message: "Token is valid", user: req.user });
 });
 
 //start the server
