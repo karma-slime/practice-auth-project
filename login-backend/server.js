@@ -43,13 +43,14 @@ const db = mysql.createPool({
     queueLimit: 0
 });
 
-// connection initializer
-db.connect((err) => {
+// connection initializer to verify database connectivity on server start
+db.getConnection((err, connection) => {
     if (err) {
         console.error("Database connection failed: ", err.stack);
         return;
     }
-    console.log("Connected to mysql database as id " + db.threadId);
+    console.log("Connected to mysql database as id " + connection.threadId);
+    connection.release();
 });
 
 const pool = db.promise();
