@@ -6,26 +6,20 @@ const catchAsync = require('../utils/catchAsync');
 exports.register = catchAsync(async (req, res, next) => {
     const { email, password } = req.body;
 
-        if (!email || !password) {
-            const error = new Error("Email and password are required");
-            error.statusCode = 400;
-            return next(error);
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
         
-        try{
-            await db.query('INSERT INTO user (email, password) VALUES (?, ?)', [email, hashedPassword]);
-            res.status(201).json({ message: "User registered successfully" });
-        } catch (err) {
-            if (err.code === 'ER_DUP_ENTRY') {
-                const customErr = new Error("Email already exists");
-                customErr.statusCode = 400;
-                return next(customErr);
-            }
-            next(err);
+    try{
+        await db.query('INSERT INTO user (email, password) VALUES (?, ?)', [email, hashedPassword]);
+        res.status(201).json({ message: "User registered successfully" });
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            const customErr = new Error("Email already exists");
+            customErr.statusCode = 400;
+            return next(customErr);
         }
-    });
+        next(err);
+    }
+});
 
 exports.login = catchAsync(async (req, res, next) => {
     const { email, password } = req.body;

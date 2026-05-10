@@ -1,5 +1,8 @@
+const helmet = require('helmet');
+const morgan = require('morgan');
 const express = require('express');
 const cors = require('cors');
+
 require('dotenv').config();
 
 // importing config, db connection, routes and middleware
@@ -8,6 +11,8 @@ const globalErrorHandler = require('./middleware/errorHandler');
 const { authenticateToken } = require('./middleware/authMiddleware');
 
 const app = express();
+app.use(helmet());
+app.use(morgan('dev'));
 
 // CORS configuration to allow requests from the frontend
 app.use(cors({
